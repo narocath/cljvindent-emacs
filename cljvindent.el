@@ -84,7 +84,6 @@ Return non-nil on success."
   "Return plist data for the form between START and END."
   (list :start start
         :end end
-        :text (buffer-substring-no-properties start end)
         :base-col (save-excursion
                     (goto-char start)
                     (current-column))))
@@ -156,8 +155,9 @@ Return non-nil on success."
     (user-error "No form or region found"))
   (let* ((start (plist-get form-data :start))
          (end (plist-get form-data :end))
-         (text (substring-no-properties (plist-get form-data :text)))
          (base-col (plist-get form-data :base-col))
+         (pos (point))
+         (text (buffer-substring-no-properties start end))
          (raw-result
           (funcall formatter-fn
                    text
@@ -165,19 +165,13 @@ Return non-nil on success."
                    cljvindent-enable-logs
                    cljvindent-log-level
                    cljvindent-log-file-output-type))
-         (result (substring-no-properties raw-result))
-         (pos (point))
-         (tmp (generate-new-buffer " *cljvindent-replace*")))
-    (unwind-protect
-        (progn
-          (with-current-buffer tmp
-            (insert result))
-          (with-undo-amalgamate
-            (save-excursion
-              (save-restriction
-                (narrow-to-region start end)
-                (replace-buffer-contents tmp)))))
-      (kill-buffer tmp))
+         (result (substring-no-properties raw-result)))
+    (unless (string= text result)
+      (with-undo-amalgamate
+        (save-excursion
+          (delete-region start end)
+          (goto-char start)
+          (insert result))))
     (goto-char (min pos (point-max)))
     result))
 
